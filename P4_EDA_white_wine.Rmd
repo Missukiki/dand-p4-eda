@@ -84,7 +84,7 @@ grid.arrange(p1,p2,p3,p4)
 p + geom_histogram(aes(x=residual.sugar),binwidth = 0.5) +
   coord_cartesian(xlim = c(0,quantile(wine$residual.sugar,prob=0.99)))
 ```
-绘制残留糖分分布的条形图（图中同样排除了最高1%的极值，下略），可以看出残留糖分越高的酒数量越少，大部分酒中的残留糖分比较低，分布的峰值出现在$(0.5 - 2g/L)$，但也有不少酒中残留糖分较高。
+绘制残留糖分分布的条形图（图中同样排除了最高1%的极值，下略），可以看出残留糖分越高的酒数量越少，大部分酒中的残留糖分比较低，分布的峰值出现在$(0.5 - 2g/L)$，但也有不少酒中残留糖分较高。    
 
 ## 氯化物（chlorides）
 
@@ -153,10 +153,34 @@ summary(wine$alcohol)
 ```
 大部分白葡萄酒的酒精浓度在9%-13%之间，调用summary计算可知酒精浓度的均值与中位数都在10.5%附近。
 
---------
-# 双变量分析
+## Q&A    
 
-## 相关系数矩阵
+### What is the structure of your dataset?       
+原始数据集记录了4898种白葡萄酒的13项数据，其中第一项是葡萄酒的编号，最后一列是其品质的评分（0-10），其余11项分别记录了葡萄酒的一项理化因子。       
+数据集中的各项变量都近似服从正态分布。       
+
+### What is/are the main feature(s) of interest in your dataset?       
+这个数据集中我最感兴趣的变量是'quality'，即白葡萄酒品质的评分。这个数据集中葡萄酒品质评分的范围是3-9，其中评分为3和9的酒数量都比较少。所以我把评分3-4的酒合并记为'terrible'，评分8-9的酒合并记为'excellent'，如此把品质的评分分为了5档:'terrible','bad',average','good','excellent'。      
+```{r}
+table(wine$quality)
+```
+
+```{r}
+table(wine$quality_bucket)
+```
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?      
+因为还没有进行双变量的分析，我在这里还无法确定哪些变量与酒的品质会有比较强的相关性。不过根据日常生活的经验，我想酒精浓度与酒的品质可能有比较强的相关性。酒中的各种化学成分的含量如不同种类的酸、氯化物、残留糖分、各种硫化物也会对酒的品质有一定的影响。      
+
+### Did you create any new variables from existing variables in the dataset?      
+是的，我建立了新的品质评分分组quality_bucket；我还把不挥发性酸和挥发性酸的浓度相加得到了酒中酸的总浓度total.acidity，把二氧化硫和硫酸盐浓度相加得到了硫化物总浓度sulphides；我进一步计算了硫化物中二氧化硫的比例ratio.sulfur.dioxide和二氧化硫中游离态的比例ratio.free.sulfur.dioxide。       
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?   
+事实上数据集本身已经足够完整，并且变量看起来都近似服从正态分布，所以我没有做太多额外的调整。数据集中出现了一些长尾，不过因为其中数据的范围本身就比较小，没有出现几个数量级的差异，不适合取对数坐标，所以我只是简单通过坐标轴设置排除了最高1%的极值。     
+
+# 双变量分析     
+
+## 相关系数矩阵      
 
 ```{r}
 ggcorr(wine)
@@ -164,7 +188,7 @@ ggcorr(wine)
 调用ggcorr函数绘制数据集的相关系数矩阵，图中呈现了数据集中各项数据之间的相关系数。   
 从图中来看，白葡萄酒的品质与酒精浓度相关系数较大，与其他因子都没有呈现明显的相关性。    
 葡萄酒的密度与硫化物含量、氯化物含量、残留糖分、非挥发性酸含量、酒精浓度等很多变量都呈现明显的相关性。    
-在这些变量中，我会选择自己感兴趣的组合做双变量分析。  
+在这些变量中，我会选择自己感兴趣的组合做双变量分析。    
 
 ## 品质 VS 酒精浓度
 
@@ -247,7 +271,18 @@ ggplot(data=wine,aes(x=density,y=residual.sugar)) +
   geom_smooth()
 cor.test(wine$density,wine$residual.sugar)
 ```
-葡萄酒的密度与酸的含量呈现明显的正相关，相关系数约为0.84。
+葡萄酒的密度与残留糖分呈现明显的正相关，相关系数约为0.84。
+
+## 酒精浓度 VS 残留糖分
+
+```{r}
+ggplot(data=wine,aes(x=alcohol,y=residual.sugar)) +
+  geom_point(alpha=0.1,color='orange') +
+  coord_cartesian(xlim=c(8,14),ylim = c(0,23)) +
+  geom_smooth()
+cor.test(wine$alcohol,wine$residual.sugar)
+```
+白葡萄酒中的酒精浓度与残留糖分也呈现出了负相关关系，相关系数约为-0.45。
 
 ## 游离态二氧化硫 VS 结合态二氧化硫
 计算酒中结合态$SO_2$的含量（$SO_2$总量-游离态$SO_2$），绘制其与游离态$SO_2$含量的散点图；
@@ -272,58 +307,94 @@ ggplot(data=wine,aes(x=fixed.acidity,y=volatile.acidity)) +
 ```
 酒中的挥发性酸和非挥发性酸含量之间没有明显的相关关系。
 
-# 多变量分析
+## Q&A     
 
-## 品质 VS 残留糖分 VS 酒精浓度
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?      
+在这一部分的分析，我逐个分析了白葡萄酒品质与各个变量的相关关系，发现相关性比较显著的变量包括:        
+1.酒精浓度:正相关，酒精浓度较高的酒一般品质较高；     
+2.挥发性酸浓度:负相关，挥发性酸浓度升高时酒的品质会显著下降；     
+3.氯化物浓度:负相关，品质越好的酒，氯化物含量越低;       
+4.游离态$SO_2$占总$SO_2$比例:正相关，游离态$SO_2$占比较高的酒品质一般也较好；               
+其余几个变量与葡萄酒的品质没有呈现明显的相关性。     
+除此之外，我还研究了酒中酸的总量与pH的关系，挥发性酸与非挥发性酸的关系，游离态$SO_2$和结合态$SO_2$的关系，密度、酒精浓度和残留糖分的关系等。     
 
-```{r}
-names(wine)
-```
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?     
+我发现葡萄酒的密度、酒精浓度和残留糖分这三个变量两两相关：酒的密度与酒精浓度负相关，与残留糖分正相关，同时残留糖分与酒精浓度也呈现负相关关系。     
+
+### What was the strongest relationship you found?      
+葡萄酒的密度与酒精浓度和残余糖分都是强相关的，相关系数都达到了0.8左右。     
+
+# 多变量分析     
+
+## 品质 VS 残留糖分 VS 酒精浓度     
 
 ```{r}
 ggplot(data=wine,aes(x=alcohol,y=residual.sugar)) +
   geom_point(alpha=0.5,aes(color=quality_bucket)) +
   coord_cartesian(xlim=c(8,14),ylim = c(0,20)) +
-  scale_color_brewer(type = 'div',
-    guide = guide_legend(title='Quality',override.aes = list(alpha = 1, size = 3))) +
-  geom_smooth(method='lm')
+  scale_color_brewer(palette = 'Blues',
+    guide = guide_legend(override.aes = list(alpha = 1, size = 3))) +
+  geom_smooth(aes(color=quality_bucket),method='lm')
 ```
-绘制酒精浓度和残留糖分的散点图，并用葡萄的酒品质着色，可以看出酒精浓度和残留糖分之间存在负相关关系。观察颜色会发现品质较高的酒都分布在图的右侧，说明酒的品质和酒精浓度存在正相关，这与前文的发现是一致的。
+绘制酒精浓度和残留糖分的散点图，用葡萄的酒品质着色，对各种品质葡萄酒，都画出酒精浓度和残留糖分的线性回归曲线。可以看出酒精浓度和残留糖分之间存在负相关关系。观察颜色会发现品质较高的酒都分布在图的右侧，说明酒的品质和酒精浓度存在正相关，这与前文的发现是一致的。每条线性回归曲线都是向右下倾斜的，形状也大体相似，说明对不同品质的酒，酒精浓度和残留糖分的关系都是相似的。     
 
 ## 密度 VS 酒精浓度 VS 残留糖分
 
 ```{r}
 summary(wine$density)
+wine$density_bucket = cut(wine$density,c(0,0.99,0.999,1.1),labels=c('light','median','heavy'))
+table(wine$density_bucket)
 ```
-观察白葡萄酒密度的统计值，按是否小于0.99和是否大于1将其分为三个区间，分别是'light','average','heavy'。
+观察白葡萄酒密度的统计值，按是否<=0.99和是否>=1将其分为三个区间，分别是'light','median','heavy'。
 
 ```{r}
-wine$density_bucket = cut(wine$density,c(0,0.99,1,1.1),labels=c('light','average','heavy'))
 ggplot(data=wine,aes(x=alcohol,y=residual.sugar)) +
   geom_point(aes(color=density_bucket),alpha=0.5) +
   coord_cartesian(xlim=c(8,14),ylim = c(0,20)) +
-  scale_color_brewer(type='qual',
+  scale_color_brewer(palette = 'Reds',
     guide = guide_legend(override.aes = list(alpha = 1, size = 3))) +
-  geom_smooth(method='lm')
+  geom_smooth(method='lm',aes(color=density_bucket))
 ```
-同样绘制酒精浓度与残留糖分的散点图，改为对密度着色，可以看到较轻的葡萄酒都在右下端，即高酒精浓度、低残留糖分；较重的酒则在左上方，对应低酒精浓度和高残留糖分。
+同样绘制酒精浓度与残留糖分的散点图，改为对密度着色，对不同密度的葡萄酒，都画出酒精浓度和残留糖分的线性回归曲线。可以看到较轻的葡萄酒都在右下端，即高酒精浓度、低残留糖分；较重的酒则在左上方，对应低酒精浓度和高残留糖分，这与前文中的发现是一致的。不过对于不同密度的酒，其残留糖分与酒精浓度的关系并不一样。对占了占据了葡萄酒大多数的密度'median'组中的酒,其线性回归曲线与总体曲线一致是向下倾斜的，即酒精浓度与残留糖分负正相关。不过对于较重和较轻的酒，它们的酒精浓度与残留糖分是正相关的。     
 
-## 品质 VS 不同形态的二氧化硫
+```{r}
+light_wine = subset(wine,density_bucket=='light')
+median_wine = subset(wine,density_bucket=='median')
+heavy_wine = subset(wine,density_bucket=='heavy')
+cor.test(light_wine$alcohol,light_wine$residual.sugar)
+cor.test(median_wine$alcohol,median_wine$residual.sugar)
+cor.test(heavy_wine$alcohol,heavy_wine$residual.sugar)
+```
+分别计算三组变量的相关系数，'light'组的相关系数为0.4，'median'组为-0.33，'heavy'组为0.3。    
+
+## 品质 VS 不同形态的二氧化硫    
 
 ```{r}
 ggplot(data=wine,aes(x=fixed.sulfur.dioxide,y=free.sulfur.dioxide)) +
   geom_point(alpha=0.5,aes(color=quality_bucket)) +
   coord_cartesian(xlim = c(0,0.2),ylim = c(0,0.075)) +
-  geom_smooth(method='lm') +
-  scale_color_brewer(type='div',
+  geom_smooth(method='lm',aes(color=quality_bucket)) +
+  scale_color_brewer(palette = 'Blues',
     guide = guide_legend(override.aes = list(alpha = 1, size = 3)))
 ```
 
-把前文中两种二氧化碳存在形式的散点图用葡萄酒品质着色，可以看出高品质的酒位于图片的左上部分,对应较高的游离态$SO_2$含量，和较低的$SO_2$含量。
+把前文中两种二氧化碳存在形式的散点图用葡萄酒品质着色，可以看出高品质的酒位于图片的左上部分,对应较高的游离态$SO_2$含量，和较低的结合态$SO_2$含量。无论对哪种品质的酒，游离态$SO_2$和结合态$SO_2$都呈现正相关，但是酒的品质越高，回归曲线的斜率越小。   
 
-# Fianl Plot
+----------
+## Q&A      
+### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?      
+这一部分中我先观察了品质、残留糖分和酒精浓度的关系，发现无论对于那种品质的葡萄酒，残留糖分和酒精浓度都是负相关的，且酒的品质与酒精浓度正相关，这与前文中的发现一致；随后我研究了密度、残留糖分和酒精浓度，发现残留糖分和酒精浓度的关系对不同密度的酒表现不一样；我还研究了品质、游离态$SO_2$、结合态$SO_2$的关系，发现品质较好的酒一般有更高游离态$SO_2$含量，且对任何品质的白葡萄酒，游离态$SO_2$和结合态$SO_2$都呈现正相关。     
 
-## Plot 1 与酒品质相关的因素
+### Were there any interesting or surprising interactions between features?      
+最意外的发现是对于较轻和较重的酒，它们残留糖分和酒精浓度的关系与大部分酒并不一样。大部分酒（密度0.99-0.999g/mL）残留糖分和酒精浓度负相关的，而较重和较轻的酒残留糖分和酒精浓度呈现正相关关系。     
+
+### Did you create any models with your dataset? Discuss the strengths and limitations of your model   
+我建立了一个最简单的水中酸的总浓度与pH值的线性回归模型，用于计算酒中酸的电离度。     
+具体模型和计算方法在 Final Plot 3中。    
+
+# Fianl Plot    
+
+## Plot 1 与酒品质相关的因素   
 
 ```{r}
 p <- ggplot(data=wine,aes(x=quality_bucket)) + geom_boxplot() + xlab('quality')
@@ -354,12 +425,13 @@ grid.arrange(p1,p2,p3,p4)
 ggplot(data=wine,aes(x=alcohol,y=residual.sugar)) +
   geom_point(aes(color=density_bucket),alpha=0.5) +
   coord_cartesian(xlim=c(8,14),ylim = c(0,20)) +
-  scale_color_brewer(type='qual',
+  scale_color_brewer(palette = 'Reds',
     guide = guide_legend(title='Density',override.aes = list(alpha = 1, size = 3))) +
-  geom_smooth(method='lm') + 
-  labs(x='alcohol(%)',y='residual.sugar(g/L)')
+  geom_smooth(method='lm',aes(color=density_bucket)) + 
+  labs(x='alcohol(%)',y='residual.sugar(g/L)') +
+  ggtitle('Alcohol VS Residual.Sugar VS Density')
 ```
-绘制酒精浓度与残留糖分的散点图，并对密度着色，可以看到酒精浓度与酒中的残留糖分存在明显的负相关关系，在图中呈现为一条向下倾斜的线。出现负相关的原因是白葡萄酒的酿造其实就是把有机糖通过微生物无氧呼吸转化为酒精，所以如果酒精浓度低，残留的糖分必定就较多，反之亦然。     
+绘制酒精浓度与残留糖分的散点图，对密度着色，并绘制不同密度的线性回归曲线。可以看到对密度'average'的白葡萄酒，酒精浓度与酒中的残留糖分存在负相关关系，在图中呈现为一条向下倾斜的线，而对于密度较轻或较重的酒，其酒精浓度与酒中的残留糖分是正相关的。因为白葡萄酒的酿造其实就是把有机糖通过微生物无氧呼吸转化为酒精的过程，所以对于大部分白葡萄酒来说，如果酒精浓度低，残留的糖分就会较多，反之亦然；对于较重和较亲的葡萄酒，它们可能并不是完全天然酿造的，而是在酿造过程中额外加入了糖分活着额外加入了酒精，所以产生了异常。     
 图中还揭示了酒的密度与酒精浓度和残留糖分的关系，不难看出当酒精浓度较高、残留糖分较少时酒的密度较低，反之酒精浓度低、残留糖分多时酒的密度较高；原因是酒精的浓度比水小，而有机糖类的密度比水大，所以很自然酒精增多会降低密度，糖类增多会增大酒的密度。其实除了有机糖外，酒中的各种酸、硫酸盐、氯酸盐等成分密度也大于水，所以它们的增加也会提升酒的密度，不过它们的含量较低且密度也没有糖大所以相关性不够显著。
 
 ## Plot 3 酸的总含量与pH
@@ -370,7 +442,8 @@ ggplot(data=wine,aes(y=hydrion.ion,x=total.acidity)) +
   geom_point(alpha=0.5,shape=21,color='orange') +
   coord_cartesian(ylim=c(0.0002,0.0015),xlim=c(5,10)) +
   geom_smooth(method='lm') +
-  labs(y='[H+] (mol/L)',x='total acidity(g/L)')
+  labs(y='[H+] (mol/L)',x='total acidity(g/L)') +
+  ggtitle('[H+] VS Acidity')
 ```
 因为pH值反映的本质是氢离子$H^+$浓度，利用公式$pH=-lg([H^+])$把pH重新转化为$H^+$浓度，绘制其与酒中酸质量浓度的散点图，可以看到呈现明显的正相关关系。    
 计算酸的质量浓度与$H^+$浓度的线性回归方程：
@@ -379,17 +452,16 @@ library(memisc)
 m1 <- (lm(I(total.acidity) ~ I(hydrion.ion),data=wine))
 mtable(m1)
 ```
-得到了回归方程：
-$total.acidity = 1585.011*[H^+] + 6.045$     
+得到了回归方程:$total.acidity = 1585.011*[H^+] + 6.045$      
 事实上这个写法很不严谨，因为等式两边的单位并不统一，酸的浓度用的是质量浓度，而$H^+$用的是摩尔浓度。将质量浓度除以酒中酸的平均摩尔质量可以得到摩尔浓度。葡萄酒中的酸虽然种类很多，但主要以酒石酸为主，因此这里为了简化计算，我假设酒中的酸全部都是酒石酸，其摩尔质量是$150.087 g/mol$，两侧相除得到新的回归方程:    
 $total.acidity = 10.56*[H^+] + 0.04$        
-此处关注的是斜率，所以忽略截距项，所以方程进一步简化为:酒中酸的浓度 = 10.56*氢离子的浓度
-因为酒石酸是弱酸，在水中不能完全解离，所以酒中酸的浓度比氢离子的浓度高，并且可以进一步计算出酒中酸的平均解离度为1/(10.56+1) = 0.087，即有8.7%的酸在水中解离出了氢离子$H^+$。
+此处关注的是斜率，所以忽略截距项，所以方程进一步简化为:酒中酸的浓度 = 10.56*氢离子的浓度     
+因为酒石酸是弱酸，在水中不能完全解离，所以酒中酸的浓度比氢离子的浓度高，并且可以进一步计算出酒中酸的平均解离度为1/(10.56+1) = 0.087，即有8.7%的酸在水中解离出了氢离子$H^+$。   
 
-# Reflction
+# Reflction     
 
-在这个项目中，我探索了关于白葡萄酒品质的数据集，发现其中有几个变量的值与葡萄酒品质密切相关，但大部分变量与品质之间没有呈现明显的相关性。我还探索了与葡萄酒密度有关的因素，并通过数据集中酸的含量与pH的数据简单计算了酒中酸的电离度。     
-但应该说现在我对这个数据集的探索还处在很初步的阶段，我最多只研究了三个变量之间的关系，没有对更多变量进行探索；我只对酒的品质与单个变量做个定性的分析，没有考虑多个因素的共同作用，也没有建立定量的模型；最后对酸电离度的计算也很简略，没有考虑不同酸的类型，也没有考虑多元酸的二级解离。如果对数据进行进一步更深度的探索，我会尝试建立一个白葡萄酒品质预测的模型。     
+在这个项目中，我探索了关于白葡萄酒品质的数据集，发现其中有几个变量的值与葡萄酒品质密切相关，但大部分变量与品质之间没有呈现明显的相关性。我还探索了与葡萄酒密度有关的因素，并通过数据集中酸的含量与pH的数据简单计算了酒中酸的电离度。         
+但应该说现在我对这个数据集的探索还处在很初步的阶段，我最多只研究了三个变量之间的关系，没有对更多变量进行探索；我只对酒的品质与单个变量做个定性的分析，没有考虑多个因素的共同作用，也没有建立定量的模型；最后对酸电离度的计算也很简略，没有考虑不同酸的类型，也没有考虑多元酸的二级解离。如果对数据进行进一步更深度的探索，我会尝试建立一个白葡萄酒品质预测的模型。         
 另一个我比较感性的点是三个专家对不同酒的评价会有多大的差异，那种类型的酒容易引发差异化的评价，可惜原始数据集中没有提供这方面的数据。
 
 
